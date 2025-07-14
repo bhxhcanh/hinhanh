@@ -1,27 +1,276 @@
+:root {
+  --bg-color: #1a1a1a;
+  --panel-color: #2c2c2c;
+  --border-color: #444;
+  --text-color: #f0f0f0;
+  --text-secondary-color: #a0a0a0;
+  --primary-color: #007bff;
+  --primary-hover-color: #0056b3;
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
-  font-family: sans-serif;
-  background: #f7f7f7;
-  padding: 20px;
+  font-family: var(--font-family);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+h1, h3 {
+    font-weight: 600;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 1400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+header {
   text-align: center;
 }
-.container {
-  max-width: 700px;
-  margin: auto;
+
+.main-content {
+  background-color: var(--panel-color);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  min-height: 70vh;
+  display: flex;
 }
-canvas {
-  border: 1px solid #ccc;
-  max-width: 100%;
-  margin: 10px 0;
+
+/* --- Uploader Section --- */
+.uploader-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 2rem;
 }
-.controls label {
-  display: block;
-  margin: 10px 0;
-}
-button {
-  padding: 10px 20px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
+
+.upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 4rem 6rem;
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
   cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  color: var(--text-secondary-color);
+}
+
+.upload-label:hover, .upload-label.dragover {
+  background-color: #333;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+#upload-input {
+  display: none;
+}
+
+/* --- Editor Section --- */
+.editor-section {
+  display: flex;
+  width: 100%;
+  padding: 1.5rem;
+  gap: 1.5rem;
+}
+
+.canvas-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--bg-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+canvas {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  cursor: crosshair;
+}
+
+.controls-panel {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* --- Tabs --- */
+.tabs {
+  display: flex;
+  background-color: #383838;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  background-color: transparent;
+  color: var(--text-secondary-color);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.tab-btn:hover {
+  background-color: #444;
+}
+
+.tab-btn.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+/* --- Tab Content & Controls --- */
+.tab-content {
+  display: none;
+  flex-direction: column;
+  gap: 1rem;
+}
+.tab-content.active {
+  display: flex;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.control-group label {
+    color: var(--text-secondary-color);
+    font-size: 0.9rem;
+}
+.control-group input[type="number"],
+.control-group select {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #333;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    font-size: 1rem;
+}
+.control-group input[type="number"]:focus,
+.control-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.checkbox-group {
+    flex-direction: row;
+    align-items: center;
+}
+
+.instructions {
+    font-size: 0.9rem;
+    color: var(--text-secondary-color);
+    line-height: 1.4;
+}
+
+/* --- Buttons --- */
+.action-btn {
+    padding: 0.8rem 1.5rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+.action-btn:hover:not(:disabled) {
+    background: var(--primary-hover-color);
+}
+.action-btn:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+
+.reset-btn {
+    margin-top: auto; /* Pushes to the bottom */
+    padding: 0.8rem 1.5rem;
+    background: #4a4a4a;
+    color: var(--text-color);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.reset-btn:hover {
+    background: #5a5a5a;
+}
+
+/* --- Sliders --- */
+#quality-control {
+    flex-direction: column;
+}
+#quality-slider {
+    width: 100%;
+}
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  background: transparent;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: pointer;
+  margin-top: -6px; 
+}
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  cursor: pointer;
+  background: #555;
+  border-radius: 3px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+    body {
+        padding: 1rem;
+    }
+    .editor-section {
+        flex-direction: column;
+    }
+    .controls-panel {
+        width: 100%;
+    }
+    .canvas-container {
+        min-height: 40vh;
+    }
 }
