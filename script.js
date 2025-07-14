@@ -1,65 +1,280 @@
-const upload = document.getElementById('upload');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const widthInput = document.getElementById('width');
-const heightInput = document.getElementById('height');
-const qualityInput = document.getElementById('quality');
-const formatInput = document.getElementById('format');
-const downloadBtn = document.getElementById('download');
+document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements
+    const uploaderSection = document.getElementById('uploader');
+    const editorSection = document.getElementById('editor');
+    const uploadInput = document.getElementById('upload-input');
+    const uploadLabel = document.querySelector('.upload-label');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
 
-let originalImage = new Image();
+    const tabs = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-upload.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+    // Resize controls
+    const widthInput = document.getElementById('width-input');
+    const heightInput = document.getElementById('height-input');
+    const aspectRatioLock = document.getElementById('aspect-ratio-lock');
+    const applyResizeBtn = document.getElementById('apply-resize-btn');
 
-  const reader = new FileReader();
-  reader.onload = () => {
-    originalImage.onload = () => {
-      canvas.width = originalImage.width;
-      canvas.height = originalImage.height;
-      ctx.drawImage(originalImage, 0, 0);
-      widthInput.value = originalImage.width;
-      heightInput.value = originalImage.height;
+    // Crop controls
+    const applyCropBtn = document.getElementById('apply-crop-btn');
+
+    // Export controls
+    const formatSelect = document.getElementById('format-select');
+    const qualityControl = document.getElementById('quality-control');
+    const qualitySlider = document.getElementById('quality-slider');
+    const qualityValue = document.getElementById('quality-value');
+    const downloadBtn = document.getElementById('download-btn');
+    const resetBtn = document.getElementById('reset-btn');
+
+    // State
+    let originalImage = new Image();
+    let editedImage = new Image();
+    let originalAspectRatio = 1;
+    let isCropping = false;
+    let isDragging = false;
+    let cropRect = { startX: 0, startY: 0, width: 0, height: 0 };
+    
+    // --- UPLOAD & INITIALIZATION ---
+
+    const handleImageUpload = (file) => {
+        if (!file || !file.type.startsWith('image/')) {
+            alert('Please select a valid image file.');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            originalImage.src = e.target.result;
+            originalImage.onload = () => {
+                editedImage.src = originalImage.src;
+                editedImage.onload = () => {
+                    setupEditor();
+                }
+            };
+        };
+        reader.readAsDataURL(file);
     };
-    originalImage.src = reader.result;
-  };
-  reader.readAsDataURL(file);
-});
+    
+    const setupEditor = () => {
+        originalAspectRatio = editedImage.naturalWidth / editedImage.naturalHeight;
+        updateCanvas(editedImage);
+        widthInput.value = editedImage.width;
+        heightInput.value = editedImage.height;
+        uploaderSection.classList.add('hidden');
+        editorSection.classList.remove('hidden');
+        activateTab('resize');
+        applyCropBtn.disabled = true;
+    };
+    
+    const updateCanvas = (imageSource) => {
+        canvas.width = imageSource.naturalWidth;
+        canvas.height = imageSource.naturalHeight;
+        ctx.drawImage(imageSource, 0, 0, imageSource.naturalWidth, imageSource.naturalHeight);
+    };
 
-function updateCanvas() {
-  const width = parseInt(widthInput.value);
-  const height = parseInt(heightInput.value);
+    const resetEditor = () => {
+        uploaderSection.classList.remove('hidden');
+        editorSection.classList.add('hidden');
+        uploadInput.value = ''; // Clear file input
+        originalImage = new Image();
+        editedImage = new Image();
+        isCropping = false;
+    };
 
-  canvas.width = width;
-  canvas.height = height;
-  ctx.drawImage(originalImage, 0, 0, width, height);
-}
+    // --- EVENT LISTENERS ---
 
-widthInput.addEventListener('input', updateCanvas);
-heightInput.addEventListener('input', updateCanvas);
+    uploadInput.addEventListener('change', (e) => handleImageUpload(e.target.files[0]));
+    
+    // Drag & Drop
+    uploadLabel.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadLabel.classList.add('dragover');
+    });
+    uploadLabel.addEventListener('dragleave', () => uploadLabel.classList.remove('dragover'));
+    uploadLabel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadLabel.classList.remove('dragover');
+        handleImageUpload(e.dataTransfer.files[0]);
+    });
 
-downloadBtn.addEventListener('click', () => {
-  const quality = parseFloat(qualityInput.value);
-  const format = formatInput.value;
-  const dataUrl = canvas.toDataURL(format, quality);
+    // Tab Navigation
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => activateTab(tab.dataset.tab));
+    });
 
-  const link = document.createElement('a');
-  link.href = dataUrl;
-  link.download = `edited_image.${format.split('/')[1]}`;
-  link.click();
+    // Resize Listeners
+    widthInput.addEventListener('input', () => handleDimensionChange('width'));
+    heightInput.addEventListener('input', () => handleDimensionChange('height'));
+    applyResizeBtn.addEventListener('click', applyResize);
 
-  // Gửi log (nếu có GAS)
-  fetch('https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec', {
-    method: 'POST',
-    body: JSON.stringify({
-      action: 'log',
-      width: canvas.width,
-      height: canvas.height,
-      quality,
-      format,
-      time: new Date().toISOString(),
-    }),
-    headers: { 'Content-Type': 'application/json' },
-  }).catch(err => console.warn('Không thể gửi log', err));
+    // Crop Listeners
+    canvas.addEventListener('mousedown', startCrop);
+    canvas.addEventListener('mousemove', dragCrop);
+    canvas.addEventListener('mouseup', endCrop);
+    canvas.addEventListener('mouseleave', endCrop); // Stop if mouse leaves canvas
+    applyCropBtn.addEventListener('click', applyCrop);
+    
+    // Export Listeners
+    formatSelect.addEventListener('change', toggleQualitySlider);
+    qualitySlider.addEventListener('input', () => qualityValue.textContent = qualitySlider.value);
+    downloadBtn.addEventListener('click', downloadImage);
+    
+    resetBtn.addEventListener('click', resetEditor);
+
+
+    // --- TAB LOGIC ---
+
+    function activateTab(activeTab) {
+        isCropping = activeTab === 'crop';
+        tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === activeTab));
+        tabContents.forEach(content => content.classList.toggle('active', content.id === `${activeTab}-controls`));
+        redrawCanvasWithOverlay(); // Redraw to remove/add crop selection
+    }
+
+    // --- RESIZE LOGIC ---
+    
+    function handleDimensionChange(changed) {
+        if (!aspectRatioLock.checked) return;
+        const width = parseInt(widthInput.value);
+        const height = parseInt(heightInput.value);
+
+        if (changed === 'width' && width > 0) {
+            heightInput.value = Math.round(width / originalAspectRatio);
+        } else if (changed === 'height' && height > 0) {
+            widthInput.value = Math.round(height * originalAspectRatio);
+        }
+    }
+    
+    function applyResize() {
+        const width = parseInt(widthInput.value);
+        const height = parseInt(heightInput.value);
+
+        if (width <= 0 || height <= 0) {
+            alert('Please enter valid dimensions.');
+            return;
+        }
+
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        tempCtx.drawImage(editedImage, 0, 0, width, height);
+
+        editedImage.src = tempCanvas.toDataURL();
+        editedImage.onload = () => {
+            originalAspectRatio = editedImage.width / editedImage.height;
+            updateCanvas(editedImage);
+        };
+    }
+    
+    // --- CROP LOGIC ---
+    
+    function startCrop(e) {
+        if (!isCropping) return;
+        isDragging = true;
+        const rect = canvas.getBoundingClientRect();
+        cropRect.startX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        cropRect.startY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        cropRect.width = 0;
+        cropRect.height = 0;
+        applyCropBtn.disabled = true;
+    }
+    
+    function dragCrop(e) {
+        if (!isCropping || !isDragging) return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        cropRect.width = mouseX - cropRect.startX;
+        cropRect.height = mouseY - cropRect.startY;
+        redrawCanvasWithOverlay();
+    }
+    
+    function endCrop() {
+        if (!isCropping || !isDragging) return;
+        isDragging = false;
+        if (Math.abs(cropRect.width) > 10 && Math.abs(cropRect.height) > 10) {
+           applyCropBtn.disabled = false;
+        } else {
+           applyCropBtn.disabled = true;
+           redrawCanvasWithOverlay(); // Clear small/accidental selection box
+        }
+    }
+
+    function redrawCanvasWithOverlay() {
+        // Clear and draw the base image
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(editedImage, 0, 0, canvas.width, canvas.height);
+
+        if (!isCropping || (cropRect.width === 0 && cropRect.height === 0 && !isDragging) ) return;
+
+        // Draw the semi-transparent overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const x = cropRect.width > 0 ? cropRect.startX : cropRect.startX + cropRect.width;
+        const y = cropRect.height > 0 ? cropRect.startY : cropRect.startY + cropRect.height;
+        const width = Math.abs(cropRect.width);
+        const height = Math.abs(cropRect.height);
+
+        // Punch a hole in the overlay for the selected area
+        ctx.clearRect(x, y, width, height);
+
+        // Draw the border for the selection
+        ctx.strokeStyle = '#007bff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
+    }
+    
+    function applyCrop() {
+        if (Math.abs(cropRect.width) < 1 || Math.abs(cropRect.height) < 1) return;
+        
+        const x = cropRect.width > 0 ? cropRect.startX : cropRect.startX + cropRect.width;
+        const y = cropRect.height > 0 ? cropRect.startY : cropRect.startY + cropRect.height;
+        const width = Math.abs(cropRect.width);
+        const height = Math.abs(cropRect.height);
+
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        
+        tempCtx.drawImage(editedImage, x, y, width, height, 0, 0, width, height);
+        
+        editedImage.src = tempCanvas.toDataURL();
+        editedImage.onload = () => {
+            originalAspectRatio = editedImage.width / editedImage.height;
+            updateCanvas(editedImage);
+            widthInput.value = editedImage.width;
+            heightInput.value = editedImage.height;
+            cropRect = { startX: 0, startY: 0, width: 0, height: 0 };
+            applyCropBtn.disabled = true;
+            redrawCanvasWithOverlay();
+        };
+    }
+
+    // --- EXPORT LOGIC ---
+    
+    function toggleQualitySlider() {
+        const format = formatSelect.value;
+        qualityControl.style.display = (format === 'image/jpeg' || format === 'image/webp') ? 'flex' : 'none';
+    }
+
+    function downloadImage() {
+        const format = formatSelect.value;
+        const quality = parseFloat(qualitySlider.value);
+        const extension = format.split('/')[1];
+        
+        const dataUrl = canvas.toDataURL(format, quality);
+        
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `edited-image.${extension}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Initial setup
+    toggleQualitySlider();
 });
