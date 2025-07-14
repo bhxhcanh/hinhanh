@@ -18,14 +18,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Crop controls
     const applyCropBtn = document.getElementById('apply-crop-btn');
+    const cropXInput = document.getElementById('crop-x');
+    const cropYInput = document.getElementById('crop-y');
+    const cropWidthInput = document.getElementById('crop-width');
+    const cropHeightInput = document.getElementById('crop-height');
+    const cropInputs = [cropXInput, cropYInput, cropWidthInput, cropHeightInput];
 
     // Export controls
     const formatSelect = document.getElementById('format-select');
     const qualityControl = document.getElementById('quality-control');
     const qualitySlider = document.getElementById('quality-slider');
     const qualityValue = document.getElementById('quality-value');
+    const estimatedSizeEl = document.getElementById('estimated-size');
     const downloadBtn = document.getElementById('download-btn');
+    
+    // Footer Buttons
     const resetBtn = document.getElementById('reset-btn');
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
 
     // State
     let originalImage = new Image();
@@ -35,6 +45,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let isDragging = false;
     let cropRect = { startX: 0, startY: 0, width: 0, height: 0 };
     
+    // History State
+    let historyStack = [];
+    let redoStack = [];
+    
+    // --- UTILITY FUNCTIONS ---
+    
+    const debounce = (func, delay) => {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), delay);
+        };
+    };
+
     // --- UPLOAD & INITIALIZATION ---
 
     const handleImageUpload = (file) => {
@@ -58,12 +83,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const setupEditor = () => {
         originalAspectRatio = editedImage.naturalWidth / editedImage.naturalHeight;
         updateCanvas(editedImage);
-        widthInput.value = editedImage.width;
-        heightInput.value = editedImage.height;
+        updateResizeInputs();
         uploaderSection.classList.add('hidden');
         editorSection.classList.remove('hidden');
         activateTab('resize');
         applyCropBtn.disabled = true;
+        historyStack = [];
+        redoStack = [];
+        updateUndoRedoButtons();
+        updateEstimatedSize();
     };
     
     const updateCanvas = (imageSource) => {
@@ -71,6 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.height = imageSource.naturalHeight;
         ctx.drawImage(imageSource, 0, 0, imageSource.naturalWidth, imageSource.naturalHeight);
     };
+    
+    const updateResizeInputs = () => {
+        widthInput.value = editedImage.width;
+        heightInput.value = editedImage.height;
+    }
 
     const resetEditor = () => {
         uploaderSection.classList.remove('hidden');
@@ -79,13 +112,14 @@ document.addEventListener('DOMContentLoaded', () => {
         originalImage = new Image();
         editedImage = new Image();
         isCropping = false;
+        historyStack = [];
+        redoStack = [];
     };
 
     // --- EVENT LISTENERS ---
 
     uploadInput.addEventListener('change', (e) => handleImageUpload(e.target.files[0]));
     
-    // Drag & Drop
     uploadLabel.addEventListener('dragover', (e) => {
         e.preventDefault();
         uploadLabel.classList.add('dragover');
@@ -97,30 +131,79 @@ document.addEventListener('DOMContentLoaded', () => {
         handleImageUpload(e.dataTransfer.files[0]);
     });
 
-    // Tab Navigation
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => activateTab(tab.dataset.tab));
-    });
+    tabs.forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
 
-    // Resize Listeners
     widthInput.addEventListener('input', () => handleDimensionChange('width'));
     heightInput.addEventListener('input', () => handleDimensionChange('height'));
     applyResizeBtn.addEventListener('click', applyResize);
 
-    // Crop Listeners
     canvas.addEventListener('mousedown', startCrop);
     canvas.addEventListener('mousemove', dragCrop);
     canvas.addEventListener('mouseup', endCrop);
-    canvas.addEventListener('mouseleave', endCrop); // Stop if mouse leaves canvas
+    canvas.addEventListener('mouseleave', endCrop);
     applyCropBtn.addEventListener('click', applyCrop);
+    cropInputs.forEach(input => input.addEventListener('input', handleCropInputChange));
     
-    // Export Listeners
-    formatSelect.addEventListener('change', toggleQualitySlider);
-    qualitySlider.addEventListener('input', () => qualityValue.textContent = qualitySlider.value);
+    formatSelect.addEventListener('change', () => {
+        toggleQualitySlider();
+        updateEstimatedSize();
+    });
+    qualitySlider.addEventListener('input', () => {
+        qualityValue.textContent = qualitySlider.value;
+        debouncedUpdateSize();
+    });
     downloadBtn.addEventListener('click', downloadImage);
     
     resetBtn.addEventListener('click', resetEditor);
+    undoBtn.addEventListener('click', undo);
+    redoBtn.addEventListener('click', redo);
 
+
+    // --- HISTORY (UNDO/REDO) LOGIC ---
+    
+    function saveState() {
+        redoStack = []; // Clear redo stack on new action
+        historyStack.push(editedImage.src);
+        updateUndoRedoButtons();
+    }
+    
+    function updateUndoRedoButtons() {
+        undoBtn.disabled = historyStack.length === 0;
+        redoBtn.disabled = redoStack.length === 0;
+    }
+
+    function undo() {
+        if (historyStack.length === 0) return;
+        redoStack.push(editedImage.src);
+        const prevState = historyStack.pop();
+        editedImage.src = prevState;
+        editedImage.onload = () => {
+            handleImageStateChange();
+            updateUndoRedoButtons();
+        };
+    }
+    
+    function redo() {
+        if (redoStack.length === 0) return;
+        historyStack.push(editedImage.src);
+        const nextState = redoStack.pop();
+        editedImage.src = nextState;
+        editedImage.onload = () => {
+            handleImageStateChange();
+            updateUndoRedoButtons();
+        };
+    }
+    
+    function handleImageStateChange() {
+        originalAspectRatio = editedImage.width / editedImage.height;
+        updateCanvas(editedImage);
+        updateResizeInputs();
+        cropRect = { startX: 0, startY: 0, width: 0, height: 0 };
+        applyCropBtn.disabled = true;
+        updateCropInputs();
+        redrawCanvasWithOverlay();
+        updateEstimatedSize();
+    }
 
     // --- TAB LOGIC ---
 
@@ -128,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isCropping = activeTab === 'crop';
         tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === activeTab));
         tabContents.forEach(content => content.classList.toggle('active', content.id === `${activeTab}-controls`));
-        redrawCanvasWithOverlay(); // Redraw to remove/add crop selection
+        redrawCanvasWithOverlay(); 
     }
 
     // --- RESIZE LOGIC ---
@@ -149,10 +232,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const width = parseInt(widthInput.value);
         const height = parseInt(heightInput.value);
 
-        if (width <= 0 || height <= 0) {
+        if (width <= 0 || height <= 0 || !width || !height) {
             alert('Please enter valid dimensions.');
             return;
         }
+        
+        saveState();
 
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -161,20 +246,25 @@ document.addEventListener('DOMContentLoaded', () => {
         tempCtx.drawImage(editedImage, 0, 0, width, height);
 
         editedImage.src = tempCanvas.toDataURL();
-        editedImage.onload = () => {
-            originalAspectRatio = editedImage.width / editedImage.height;
-            updateCanvas(editedImage);
-        };
+        editedImage.onload = handleImageStateChange;
     }
     
     // --- CROP LOGIC ---
     
+    function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (e.clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.clientY - rect.top) * (canvas.height / rect.height)
+        };
+    }
+
     function startCrop(e) {
         if (!isCropping) return;
         isDragging = true;
-        const rect = canvas.getBoundingClientRect();
-        cropRect.startX = (e.clientX - rect.left) * (canvas.width / rect.width);
-        cropRect.startY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        const pos = getMousePos(e);
+        cropRect.startX = pos.x;
+        cropRect.startY = pos.y;
         cropRect.width = 0;
         cropRect.height = 0;
         applyCropBtn.disabled = true;
@@ -182,12 +272,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function dragCrop(e) {
         if (!isCropping || !isDragging) return;
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
-        const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
-        cropRect.width = mouseX - cropRect.startX;
-        cropRect.height = mouseY - cropRect.startY;
+        const pos = getMousePos(e);
+        cropRect.width = pos.x - cropRect.startX;
+        cropRect.height = pos.y - cropRect.startY;
         redrawCanvasWithOverlay();
+        updateCropInputs();
     }
     
     function endCrop() {
@@ -197,30 +286,45 @@ document.addEventListener('DOMContentLoaded', () => {
            applyCropBtn.disabled = false;
         } else {
            applyCropBtn.disabled = true;
-           redrawCanvasWithOverlay(); // Clear small/accidental selection box
+           cropRect = { startX: 0, startY: 0, width: 0, height: 0 };
+           updateCropInputs();
+           redrawCanvasWithOverlay();
         }
+    }
+    
+    function updateCropInputs() {
+        cropXInput.value = Math.round(cropRect.width > 0 ? cropRect.startX : cropRect.startX + cropRect.width);
+        cropYInput.value = Math.round(cropRect.height > 0 ? cropRect.startY : cropRect.startY + cropRect.height);
+        cropWidthInput.value = Math.round(Math.abs(cropRect.width));
+        cropHeightInput.value = Math.round(Math.abs(cropRect.height));
+    }
+    
+    function handleCropInputChange() {
+        const x = parseInt(cropXInput.value) || 0;
+        const y = parseInt(cropYInput.value) || 0;
+        const w = parseInt(cropWidthInput.value) || 0;
+        const h = parseInt(cropHeightInput.value) || 0;
+        
+        cropRect = { startX: x, startY: y, width: w, height: h };
+        applyCropBtn.disabled = w <= 0 || h <= 0;
+        redrawCanvasWithOverlay();
     }
 
     function redrawCanvasWithOverlay() {
-        // Clear and draw the base image
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(editedImage, 0, 0, canvas.width, canvas.height);
 
-        if (!isCropping || (cropRect.width === 0 && cropRect.height === 0 && !isDragging) ) return;
-
-        // Draw the semi-transparent overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (!isCropping || cropRect.width === 0 || cropRect.height === 0 ) return;
 
         const x = cropRect.width > 0 ? cropRect.startX : cropRect.startX + cropRect.width;
         const y = cropRect.height > 0 ? cropRect.startY : cropRect.startY + cropRect.height;
         const width = Math.abs(cropRect.width);
         const height = Math.abs(cropRect.height);
 
-        // Punch a hole in the overlay for the selected area
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.clearRect(x, y, width, height);
 
-        // Draw the border for the selection
         ctx.strokeStyle = '#007bff';
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, width, height);
@@ -228,6 +332,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function applyCrop() {
         if (Math.abs(cropRect.width) < 1 || Math.abs(cropRect.height) < 1) return;
+        
+        saveState();
         
         const x = cropRect.width > 0 ? cropRect.startX : cropRect.startX + cropRect.width;
         const y = cropRect.height > 0 ? cropRect.startY : cropRect.startY + cropRect.height;
@@ -242,15 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tempCtx.drawImage(editedImage, x, y, width, height, 0, 0, width, height);
         
         editedImage.src = tempCanvas.toDataURL();
-        editedImage.onload = () => {
-            originalAspectRatio = editedImage.width / editedImage.height;
-            updateCanvas(editedImage);
-            widthInput.value = editedImage.width;
-            heightInput.value = editedImage.height;
-            cropRect = { startX: 0, startY: 0, width: 0, height: 0 };
-            applyCropBtn.disabled = true;
-            redrawCanvasWithOverlay();
-        };
+        editedImage.onload = handleImageStateChange;
     }
 
     // --- EXPORT LOGIC ---
@@ -258,6 +356,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function toggleQualitySlider() {
         const format = formatSelect.value;
         qualityControl.style.display = (format === 'image/jpeg' || format === 'image/webp') ? 'flex' : 'none';
+    }
+    
+    const debouncedUpdateSize = debounce(updateEstimatedSize, 250);
+
+    function updateEstimatedSize() {
+        const format = formatSelect.value;
+        const quality = (format === 'image/jpeg' || format === 'image/webp') ? parseFloat(qualitySlider.value) : undefined;
+
+        const dataUrl = canvas.toDataURL(format, quality);
+        const head = `data:${format};base64,`;
+        const bytes = Math.round((dataUrl.length - head.length) * 3 / 4);
+
+        if (bytes > 1024 * 1024) {
+            estimatedSizeEl.textContent = `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+        } else if (bytes > 1024) {
+            estimatedSizeEl.textContent = `${(bytes / 1024).toFixed(1)} KB`;
+        } else {
+            estimatedSizeEl.textContent = `${bytes} Bytes`;
+        }
     }
 
     function downloadImage() {
