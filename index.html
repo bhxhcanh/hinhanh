@@ -26,53 +26,82 @@
           <canvas id="canvas"></canvas>
         </div>
         <aside class="controls-panel">
-          <nav class="tabs">
-            <button class="tab-btn active" data-tab="resize">Resize</button>
-            <button class="tab-btn" data-tab="crop">Crop</button>
-            <button class="tab-btn" data-tab="export">Export</button>
-          </nav>
+          <div class="controls-main">
+            <nav class="tabs">
+              <button class="tab-btn active" data-tab="resize">Resize</button>
+              <button class="tab-btn" data-tab="crop">Crop</button>
+              <button class="tab-btn" data-tab="export">Export</button>
+            </nav>
 
-          <div id="resize-controls" class="tab-content active">
-            <h3>Resize Image</h3>
-            <div class="control-group">
-                <label for="width-input">Width:</label>
-                <input type="number" id="width-input" />
+            <div id="resize-controls" class="tab-content active">
+              <h3>Resize Image</h3>
+              <div class="control-group">
+                  <label for="width-input">Width:</label>
+                  <input type="number" id="width-input" min="1" />
+              </div>
+              <div class="control-group">
+                  <label for="height-input">Height:</label>
+                  <input type="number" id="height-input" min="1" />
+              </div>
+              <div class="control-group checkbox-group">
+                  <input type="checkbox" id="aspect-ratio-lock" checked>
+                  <label for="aspect-ratio-lock">Lock Aspect Ratio</label>
+              </div>
+              <button id="apply-resize-btn" class="action-btn">Apply Resize</button>
             </div>
-            <div class="control-group">
-                <label for="height-input">Height:</label>
-                <input type="number" id="height-input" />
+
+            <div id="crop-controls" class="tab-content">
+              <h3>Crop Image</h3>
+              <p class="instructions">Click and drag on the image, or enter precise values below.</p>
+              <div class="crop-inputs">
+                <div class="control-group">
+                  <label for="crop-x">X:</label>
+                  <input type="number" id="crop-x" />
+                </div>
+                 <div class="control-group">
+                  <label for="crop-y">Y:</label>
+                  <input type="number" id="crop-y" />
+                </div>
+                 <div class="control-group">
+                  <label for="crop-width">Width:</label>
+                  <input type="number" id="crop-width" />
+                </div>
+                 <div class="control-group">
+                  <label for="crop-height">Height:</label>
+                  <input type="number" id="crop-height" />
+                </div>
+              </div>
+              <button id="apply-crop-btn" class="action-btn" disabled>Apply Crop</button>
             </div>
-            <div class="control-group checkbox-group">
-                <input type="checkbox" id="aspect-ratio-lock" checked>
-                <label for="aspect-ratio-lock">Lock Aspect Ratio</label>
+
+            <div id="export-controls" class="tab-content">
+              <h3>Export Image</h3>
+              <div class="control-group">
+                  <label for="format-select">Format:</label>
+                  <select id="format-select">
+                      <option value="image/png">PNG</option>
+                      <option value="image/jpeg">JPEG</option>
+                      <option value="image/webp">WebP</option>
+                  </select>
+              </div>
+              <div class="control-group" id="quality-control">
+                  <label for="quality-slider">Quality: <span id="quality-value">0.9</span></label>
+                  <input type="range" id="quality-slider" min="0.1" max="1" step="0.05" value="0.9" />
+              </div>
+              <div class="control-group">
+                <p class="file-size-info">Estimated Size: <strong id="estimated-size">...</strong></p>
+              </div>
+               <button id="download-btn" class="action-btn">Download Image</button>
             </div>
-            <button id="apply-resize-btn" class="action-btn">Apply Resize</button>
           </div>
-
-          <div id="crop-controls" class="tab-content">
-            <h3>Crop Image</h3>
-            <p class="instructions">Click and drag on the image to select a crop area.</p>
-            <button id="apply-crop-btn" class="action-btn" disabled>Apply Crop</button>
-          </div>
-
-          <div id="export-controls" class="tab-content">
-            <h3>Export Image</h3>
-            <div class="control-group">
-                <label for="format-select">Format:</label>
-                <select id="format-select">
-                    <option value="image/png">PNG</option>
-                    <option value="image/jpeg">JPEG</option>
-                    <option value="image/webp">WebP</option>
-                </select>
+          
+          <div class="controls-footer">
+            <div class="history-buttons">
+                <button id="undo-btn" class="secondary-btn" disabled>Undo</button>
+                <button id="redo-btn" class="secondary-btn" disabled>Redo</button>
             </div>
-            <div class="control-group" id="quality-control">
-                <label for="quality-slider">Quality: <span id="quality-value">0.9</span></label>
-                <input type="range" id="quality-slider" min="0.1" max="1" step="0.05" value="0.9" />
-            </div>
-             <button id="download-btn" class="action-btn">Download Image</button>
+            <button id="reset-btn" class="reset-btn">Reset & Upload New</button>
           </div>
-
-          <button id="reset-btn" class="reset-btn">Reset & Upload New</button>
         </aside>
       </div>
     </main>
