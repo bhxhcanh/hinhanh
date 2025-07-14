@@ -3,28 +3,79 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Image Editor</title>
+  <title>Image Editor Pro</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>Image Editor Web</h1>
-    <input type="file" id="upload" accept="image/*" />
-    <canvas id="canvas"></canvas>
+  <div class="app-container">
+    <header>
+      <h1>Image Editor Pro</h1>
+    </header>
 
-    <div class="controls">
-      <label>Width: <input type="number" id="width" /></label>
-      <label>Height: <input type="number" id="height" /></label>
-      <label>Quality: <input type="range" id="quality" min="0.1" max="1" step="0.1" value="0.8" /></label>
-      <label>Format:
-        <select id="format">
-          <option value="image/jpeg">JPEG</option>
-          <option value="image/png">PNG</option>
-          <option value="image/webp">WebP</option>
-        </select>
-      </label>
-      <button id="download">Tải ảnh</button>
-    </div>
+    <main class="main-content">
+      <div id="uploader" class="uploader-section">
+        <label for="upload-input" class="upload-label">
+          <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <span>Click to upload or drag & drop</span>
+        </label>
+        <input type="file" id="upload-input" accept="image/*" />
+      </div>
+
+      <div id="editor" class="editor-section hidden">
+        <div class="canvas-container">
+          <canvas id="canvas"></canvas>
+        </div>
+        <aside class="controls-panel">
+          <nav class="tabs">
+            <button class="tab-btn active" data-tab="resize">Resize</button>
+            <button class="tab-btn" data-tab="crop">Crop</button>
+            <button class="tab-btn" data-tab="export">Export</button>
+          </nav>
+
+          <div id="resize-controls" class="tab-content active">
+            <h3>Resize Image</h3>
+            <div class="control-group">
+                <label for="width-input">Width:</label>
+                <input type="number" id="width-input" />
+            </div>
+            <div class="control-group">
+                <label for="height-input">Height:</label>
+                <input type="number" id="height-input" />
+            </div>
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="aspect-ratio-lock" checked>
+                <label for="aspect-ratio-lock">Lock Aspect Ratio</label>
+            </div>
+            <button id="apply-resize-btn" class="action-btn">Apply Resize</button>
+          </div>
+
+          <div id="crop-controls" class="tab-content">
+            <h3>Crop Image</h3>
+            <p class="instructions">Click and drag on the image to select a crop area.</p>
+            <button id="apply-crop-btn" class="action-btn" disabled>Apply Crop</button>
+          </div>
+
+          <div id="export-controls" class="tab-content">
+            <h3>Export Image</h3>
+            <div class="control-group">
+                <label for="format-select">Format:</label>
+                <select id="format-select">
+                    <option value="image/png">PNG</option>
+                    <option value="image/jpeg">JPEG</option>
+                    <option value="image/webp">WebP</option>
+                </select>
+            </div>
+            <div class="control-group" id="quality-control">
+                <label for="quality-slider">Quality: <span id="quality-value">0.9</span></label>
+                <input type="range" id="quality-slider" min="0.1" max="1" step="0.05" value="0.9" />
+            </div>
+             <button id="download-btn" class="action-btn">Download Image</button>
+          </div>
+
+          <button id="reset-btn" class="reset-btn">Reset & Upload New</button>
+        </aside>
+      </div>
+    </main>
   </div>
   <script src="script.js"></script>
 </body>
