@@ -53,7 +53,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const redoBtn = document.getElementById('redo-btn');
 
     // State
-    let originalImage = new Image();
     let editedImage = new Image();
     let originalAspectRatio = 1;
     let isCropping = false;
@@ -89,8 +88,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // Gán sự kiện onload TRƯỚC khi gán src để tránh race condition
             editedImage.onload = () => {
-                // Gán cả ảnh gốc để tham chiếu
-                originalImage.src = imageUrl; 
                 setupEditor();
             };
 
@@ -134,7 +131,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         uploaderSection.classList.remove('hidden');
         editorSection.classList.add('hidden');
         uploadInput.value = ''; // Clear file input
-        originalImage = new Image();
         editedImage = new Image();
         isCropping = false;
         historyStack = [];
