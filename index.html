@@ -1,22 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Image Editor Pro</title>
+  <title>Trình Chỉnh Sửa Ảnh</title>
   <link rel="stylesheet" href="style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.9.0"
+  }
+}
+</script>
 </head>
 <body>
   <div class="app-container">
     <header>
-      <h1>Image Editor Pro</h1>
+      <h1>Trình Chỉnh Sửa Ảnh</h1>
     </header>
 
     <main class="main-content">
       <div id="uploader" class="uploader-section">
         <label for="upload-input" class="upload-label">
           <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-          <span>Click to upload or drag & drop</span>
+          <span>Nhấp hoặc kéo thả ảnh vào đây</span>
         </label>
         <input type="file" id="upload-input" accept="image/*" />
       </div>
@@ -28,31 +35,32 @@
         <aside class="controls-panel">
           <div class="controls-main">
             <nav class="tabs">
-              <button class="tab-btn active" data-tab="resize">Resize</button>
-              <button class="tab-btn" data-tab="crop">Crop</button>
-              <button class="tab-btn" data-tab="export">Export</button>
+              <button class="tab-btn active" data-tab="resize">Kích thước</button>
+              <button class="tab-btn" data-tab="crop">Cắt ảnh</button>
+              <button class="tab-btn" data-tab="remove-bg">Xóa nền</button>
+              <button class="tab-btn" data-tab="export">Xuất ảnh</button>
             </nav>
 
             <div id="resize-controls" class="tab-content active">
-              <h3>Resize Image</h3>
+              <h3>Thay đổi kích thước ảnh</h3>
               <div class="control-group">
-                  <label for="width-input">Width:</label>
+                  <label for="width-input">Rộng:</label>
                   <input type="number" id="width-input" min="1" />
               </div>
               <div class="control-group">
-                  <label for="height-input">Height:</label>
+                  <label for="height-input">Cao:</label>
                   <input type="number" id="height-input" min="1" />
               </div>
               <div class="control-group checkbox-group">
                   <input type="checkbox" id="aspect-ratio-lock" checked>
-                  <label for="aspect-ratio-lock">Lock Aspect Ratio</label>
+                  <label for="aspect-ratio-lock">Giữ tỷ lệ khung hình</label>
               </div>
-              <button id="apply-resize-btn" class="action-btn">Apply Resize</button>
+              <button id="apply-resize-btn" class="action-btn">Áp dụng</button>
             </div>
 
             <div id="crop-controls" class="tab-content">
-              <h3>Crop Image</h3>
-              <p class="instructions">Click and drag on the image, or enter precise values below.</p>
+              <h3>Cắt ảnh</h3>
+              <p class="instructions">Nhấp và kéo trên ảnh hoặc nhập giá trị.</p>
               <div class="crop-inputs">
                 <div class="control-group">
                   <label for="crop-x">X:</label>
@@ -63,21 +71,31 @@
                   <input type="number" id="crop-y" />
                 </div>
                  <div class="control-group">
-                  <label for="crop-width">Width:</label>
+                  <label for="crop-width">Rộng:</label>
                   <input type="number" id="crop-width" />
                 </div>
                  <div class="control-group">
-                  <label for="crop-height">Height:</label>
+                  <label for="crop-height">Cao:</label>
                   <input type="number" id="crop-height" />
                 </div>
               </div>
-              <button id="apply-crop-btn" class="action-btn" disabled>Apply Crop</button>
+              <button id="apply-crop-btn" class="action-btn" disabled>Áp dụng cắt</button>
+            </div>
+
+            <div id="remove-bg-controls" class="tab-content">
+              <h3>Xóa nền ảnh</h3>
+              <p class="instructions">Tự động xóa nền và giữ lại chủ thể chính trong ảnh của bạn.</p>
+              <button id="apply-remove-bg-btn" class="action-btn">Thực hiện xóa nền</button>
+              <div id="remove-bg-loader" class="loader hidden">
+                <div class="spinner"></div>
+                <p>Đang xử lý...</p>
+              </div>
             </div>
 
             <div id="export-controls" class="tab-content">
-              <h3>Export Image</h3>
+              <h3>Xuất ảnh</h3>
               <div class="control-group">
-                  <label for="format-select">Format:</label>
+                  <label for="format-select">Định dạng:</label>
                   <select id="format-select">
                       <option value="image/png">PNG</option>
                       <option value="image/jpeg">JPEG</option>
@@ -85,27 +103,27 @@
                   </select>
               </div>
               <div class="control-group" id="quality-control">
-                  <label for="quality-slider">Quality: <span id="quality-value">0.9</span></label>
+                  <label for="quality-slider">Chất lượng: <span id="quality-value">0.9</span></label>
                   <input type="range" id="quality-slider" min="0.1" max="1" step="0.05" value="0.9" />
               </div>
               <div class="control-group">
-                <p class="file-size-info">Estimated Size: <strong id="estimated-size">...</strong></p>
+                <p class="file-size-info">Kích thước dự kiến: <strong id="estimated-size">...</strong></p>
               </div>
-               <button id="download-btn" class="action-btn">Download Image</button>
+               <button id="download-btn" class="action-btn">Tải xuống</button>
             </div>
           </div>
           
           <div class="controls-footer">
             <div class="history-buttons">
-                <button id="undo-btn" class="secondary-btn" disabled>Undo</button>
-                <button id="redo-btn" class="secondary-btn" disabled>Redo</button>
+                <button id="undo-btn" class="secondary-btn" disabled>Hoàn tác</button>
+                <button id="redo-btn" class="secondary-btn" disabled>Làm lại</button>
             </div>
-            <button id="reset-btn" class="reset-btn">Reset & Upload New</button>
+            <button id="reset-btn" class="reset-btn">Tải ảnh mới</button>
           </div>
         </aside>
       </div>
     </main>
   </div>
-  <script src="script.js"></script>
+  <script type="module" src="index.tsx"></script>
 </body>
 </html>
