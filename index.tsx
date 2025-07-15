@@ -82,25 +82,18 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = (e) => {
             const imageUrl = e.target.result as string;
 
-            // Đặt trình xử lý onload *trước khi* đặt thuộc tính src.
-            // Đây là một cách mạnh mẽ để đảm bảo sự kiện load được kích hoạt.
             editedImage.onload = () => {
-                // Giữ originalImage đồng bộ để nhất quán, mặc dù nó không được sử dụng tích cực trong hầu hết logic.
-                // Nó sẽ tải ngay lập tức từ bộ đệm của trình duyệt.
                 originalImage.src = imageUrl;
                 setupEditor();
             };
 
-            // Thêm xử lý lỗi cho quá trình tải ảnh
             editedImage.onerror = () => {
                 alert('Không thể tải tệp ảnh. Tệp có thể bị hỏng hoặc không được hỗ trợ.');
             };
 
-            // Kích hoạt việc tải ảnh
             editedImage.src = imageUrl;
         };
 
-        // Thêm xử lý lỗi cho quá trình đọc tệp
         reader.onerror = () => {
             alert('Đã xảy ra lỗi khi đọc tệp.');
         };
@@ -129,8 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const updateResizeInputs = () => {
-        widthInput.value = editedImage.width.toString();
-        heightInput.value = editedImage.height.toString();
+        widthInput.value = editedImage.naturalWidth.toString();
+        heightInput.value = editedImage.naturalHeight.toString();
     }
 
     const resetEditor = () => {
@@ -209,26 +202,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (historyStack.length === 0) return;
         redoStack.push(editedImage.src);
         const prevState = historyStack.pop();
-        editedImage.src = prevState;
-        editedImage.onload = () => {
-            handleImageStateChange();
+        
+        // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
+        editedImage.onload = handleImageStateChange;
+        editedImage.onerror = () => {
+            alert('Không thể hoàn tác. Dữ liệu ảnh trước đó bị lỗi.');
+            historyStack.push(prevState); // Restore state if loading fails
+            redoStack.pop();
             updateUndoRedoButtons();
-        };
+        }
+        editedImage.src = prevState;
     }
     
     function redo() {
         if (redoStack.length === 0) return;
         historyStack.push(editedImage.src);
         const nextState = redoStack.pop();
-        editedImage.src = nextState;
-        editedImage.onload = () => {
-            handleImageStateChange();
+
+        // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
+        editedImage.onload = handleImageStateChange;
+        editedImage.onerror = () => {
+            alert('Không thể làm lại. Dữ liệu ảnh bị lỗi.');
+            redoStack.push(nextState); // Restore state if loading fails
+            historyStack.pop();
             updateUndoRedoButtons();
-        };
+        }
+        editedImage.src = nextState;
     }
     
     function handleImageStateChange() {
-        originalAspectRatio = editedImage.width / editedImage.height;
+        originalAspectRatio = editedImage.naturalWidth / editedImage.naturalHeight;
         updateCanvas(editedImage);
         updateResizeInputs();
         cropRect = { startX: 0, startY: 0, width: 0, height: 0 };
@@ -236,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCropInputs();
         redrawCanvasWithOverlay();
         updateEstimatedSize();
+        updateUndoRedoButtons(); // Centralized update
     }
 
     // --- TAB LOGIC ---
@@ -278,11 +282,11 @@ document.addEventListener('DOMContentLoaded', () => {
         tempCanvas.height = height;
         tempCtx.drawImage(editedImage, 0, 0, width, height);
 
-        editedImage.src = tempCanvas.toDataURL();
-        editedImage.onload = () => {
-             handleImageStateChange();
-             updateUndoRedoButtons();
-        };
+        const dataUrl = tempCanvas.toDataURL();
+        
+        // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
+        editedImage.onload = handleImageStateChange;
+        editedImage.src = dataUrl;
     }
     
     // --- CROP LOGIC ---
@@ -383,11 +387,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         tempCtx.drawImage(editedImage, x, y, width, height, 0, 0, width, height);
         
-        editedImage.src = tempCanvas.toDataURL();
-        editedImage.onload = () => {
-             handleImageStateChange();
-             updateUndoRedoButtons();
-        };
+        const dataUrl = tempCanvas.toDataURL();
+        
+        // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
+        editedImage.onload = handleImageStateChange;
+        editedImage.src = dataUrl;
     }
 
     // --- BACKGROUND REMOVAL ---
@@ -432,11 +436,11 @@ document.addEventListener('DOMContentLoaded', () => {
             tempCtx.clip(path);
             tempCtx.drawImage(editedImage, 0, 0);
 
-            editedImage.src = tempCanvas.toDataURL('image/png');
-            editedImage.onload = () => {
-                handleImageStateChange();
-                updateUndoRedoButtons();
-            };
+            const dataUrl = tempCanvas.toDataURL('image/png');
+            
+            // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
+            editedImage.onload = handleImageStateChange;
+            editedImage.src = dataUrl;
 
         } catch (error) {
             console.error('Lỗi xóa nền:', error);
