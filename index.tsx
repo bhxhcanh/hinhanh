@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- UTILITY FUNCTIONS ---
     
     const debounce = (func: Function, delay: number) => {
-        let timeout: number;
+        let timeout: ReturnType<typeof setTimeout>;
         return function(...args: any[]) {
             const context = this;
             clearTimeout(timeout);
@@ -78,15 +78,33 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const reader = new FileReader();
+
         reader.onload = (e) => {
-            originalImage.src = e.target.result as string;
-            originalImage.onload = () => {
-                editedImage.src = originalImage.src;
-                editedImage.onload = () => {
-                    setupEditor();
-                }
+            const imageUrl = e.target.result as string;
+
+            // Đặt trình xử lý onload *trước khi* đặt thuộc tính src.
+            // Đây là một cách mạnh mẽ để đảm bảo sự kiện load được kích hoạt.
+            editedImage.onload = () => {
+                // Giữ originalImage đồng bộ để nhất quán, mặc dù nó không được sử dụng tích cực trong hầu hết logic.
+                // Nó sẽ tải ngay lập tức từ bộ đệm của trình duyệt.
+                originalImage.src = imageUrl;
+                setupEditor();
             };
+
+            // Thêm xử lý lỗi cho quá trình tải ảnh
+            editedImage.onerror = () => {
+                alert('Không thể tải tệp ảnh. Tệp có thể bị hỏng hoặc không được hỗ trợ.');
+            };
+
+            // Kích hoạt việc tải ảnh
+            editedImage.src = imageUrl;
         };
+
+        // Thêm xử lý lỗi cho quá trình đọc tệp
+        reader.onerror = () => {
+            alert('Đã xảy ra lỗi khi đọc tệp.');
+        };
+
         reader.readAsDataURL(file);
     };
     
@@ -98,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editorSection.classList.remove('hidden');
         activateTab('resize');
         applyCropBtn.disabled = true;
-        historyStack = [editedImage.src];
+        historyStack = [];
         redoStack = [];
         updateUndoRedoButtons();
         updateEstimatedSize();
@@ -183,14 +201,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateUndoRedoButtons() {
-        undoBtn.disabled = historyStack.length <= 1;
+        undoBtn.disabled = historyStack.length === 0;
         redoBtn.disabled = redoStack.length === 0;
     }
 
     function undo() {
-        if (historyStack.length <= 1) return;
-        redoStack.push(historyStack.pop());
-        const prevState = historyStack[historyStack.length - 1];
+        if (historyStack.length === 0) return;
+        redoStack.push(editedImage.src);
+        const prevState = historyStack.pop();
         editedImage.src = prevState;
         editedImage.onload = () => {
             handleImageStateChange();
@@ -200,8 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function redo() {
         if (redoStack.length === 0) return;
+        historyStack.push(editedImage.src);
         const nextState = redoStack.pop();
-        historyStack.push(nextState);
         editedImage.src = nextState;
         editedImage.onload = () => {
             handleImageStateChange();
