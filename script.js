@@ -1,4 +1,5 @@
 
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -158,16 +159,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     const setupEditor = (image, isNewUpload = false) => {
         currentImage = image;
-        
-        handleImageStateChange();
 
         if (isNewUpload) {
+            // Đảm bảo khu vực chỉnh sửa được hiển thị TRƯỚC KHI thực hiện bất kỳ thao tác vẽ nào.
             uploaderSection.classList.add('hidden');
             editorSection.classList.remove('hidden');
+            
+            // Đặt lại trạng thái cho phiên làm việc mới.
             activateTab('resize');
             historyStack = [];
             redoStack = [];
         }
+        
+        // Bây giờ, khi canvas đã hiển thị, hãy cập nhật trạng thái và vẽ hình ảnh.
+        handleImageStateChange();
+
         updateUndoRedoButtons();
     };
     
@@ -274,8 +280,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyCropBtn.disabled = true;
         updateCropInputs();
         
-        redrawCanvasWithOverlay(); // This is now the single source of truth for drawing
-        updateEstimatedSize();
+        // Sử dụng requestAnimationFrame để đảm bảo việc vẽ chỉ xảy ra khi trình duyệt sẵn sàng.
+        // Điều này khắc phục các lỗi hiển thị do race condition.
+        requestAnimationFrame(() => {
+            redrawCanvasWithOverlay(); 
+            updateEstimatedSize();
+        });
+
         updateUndoRedoButtons();
     }
 
