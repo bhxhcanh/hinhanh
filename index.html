@@ -8,6 +8,9 @@
 <script type="importmap">
 {
   "imports": {
+    "@tensorflow/tfjs-core": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.fesm.js",
+    "@tensorflow/tfjs-backend-webgl": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.fesm.js",
+    "@tensorflow-models/body-segmentation": "https://cdn.jsdelivr.net/npm/@tensorflow-models/body-segmentation@1.0.2/dist/body-segmentation.fesm.js",
     "@google/genai": "https://esm.sh/@google/genai@^1.9.0"
   }
 }
@@ -84,7 +87,7 @@
 
             <div id="remove-bg-controls" class="tab-content">
               <h3>Xóa nền ảnh</h3>
-              <p class="instructions">Tự động xóa nền và giữ lại chủ thể chính trong ảnh của bạn.</p>
+              <p class="instructions">Xóa nền bằng AI, chạy trực tiếp trên trình duyệt của bạn. Hình ảnh của bạn không được gửi đi đâu cả, đảm bảo an toàn và riêng tư.</p>
               <button id="apply-remove-bg-btn" class="action-btn">Thực hiện xóa nền</button>
               <div id="remove-bg-loader" class="loader hidden">
                 <div class="spinner"></div>
