@@ -2,9 +2,14 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { GoogleGenAI } from "@google/genai";
+import * as bodySegmentation from '@tensorflow-models/body-segmentation';
+import '@tensorflow/tfjs-backend-webgl';
+import * as tf from '@tensorflow/tfjs-core';
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Thiết lập backend WebGL cho TensorFlow.js để tăng tốc độ xử lý bằng GPU
+    await tf.setBackend('webgl');
+
     // DOM Elements
     const uploaderSection = document.getElementById('uploader');
     const editorSection = document.getElementById('editor');
@@ -82,8 +87,10 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = (e) => {
             const imageUrl = e.target.result;
 
+            // Gán sự kiện onload TRƯỚC khi gán src để tránh race condition
             editedImage.onload = () => {
-                originalImage.src = imageUrl;
+                // Gán cả ảnh gốc để tham chiếu
+                originalImage.src = imageUrl; 
                 setupEditor();
             };
 
@@ -103,16 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const setupEditor = () => {
         originalAspectRatio = editedImage.naturalWidth / editedImage.naturalHeight;
-        updateCanvas(editedImage);
-        updateResizeInputs();
+        handleImageStateChange(); // Centralize setup logic
         uploaderSection.classList.add('hidden');
         editorSection.classList.remove('hidden');
         activateTab('resize');
-        applyCropBtn.disabled = true;
         historyStack = [];
         redoStack = [];
         updateUndoRedoButtons();
-        updateEstimatedSize();
     };
     
     const updateCanvas = (imageSource) => {
@@ -390,47 +394,60 @@ document.addEventListener('DOMContentLoaded', () => {
         editedImage.src = dataUrl;
     }
 
-    // --- BACKGROUND REMOVAL ---
+    // --- BACKGROUND REMOVAL (CLIENT-SIDE) ---
+    let segmenter; // Cache the model for performance
+
+    async function initializeSegmenter() {
+        if (segmenter) return; // Already initialized
+        
+        // Use the MediaPipe Selfie Segmentation model for efficient, in-browser processing
+        const model = bodySegmentation.SupportedModels.MediaPipeSelfieSegmentation;
+        const segmenterConfig = {
+            runtime: 'mediapipe', 
+            // The library automatically loads necessary files from this CDN path
+            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation',
+            modelType: 'general'
+        };
+        segmenter = await bodySegmentation.createSegmenter(model, segmenterConfig);
+    }
+    
     async function applyBackgroundRemoval() {
         removeBgLoader.classList.remove('hidden');
         applyRemoveBgBtn.disabled = true;
 
         try {
-            const imageDataUrl = canvas.toDataURL('image/png');
-            const base64Data = imageDataUrl.split(',')[1];
+            // Load the AI model on the first run; subsequent runs will be faster
+            await initializeSegmenter(); 
 
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-            const imagePart = {
-                inlineData: {
-                    mimeType: 'image/png',
-                    data: base64Data
-                }
-            };
-            
-            const prompt = `From the provided image, identify the main subject (e.g., person, animal, object). Generate a single, precise SVG path data that outlines only the silhouette of this main subject. The path should be scaled to the image's original dimensions of ${canvas.width}x${canvas.height}. Your output must be only the raw SVG 'd' attribute string. Do not include any other text, explanations, or markdown code fences.`;
-            
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: { parts: [imagePart, { text: prompt }] },
-            });
-
-            const svgPathData = response.text.trim();
-
-            if (!svgPathData || (!svgPathData.startsWith('M') && !svgPathData.startsWith('m'))) {
-                throw new Error('Đã nhận được dữ liệu SVG không hợp lệ từ AI.');
+            const segmentation = await segmenter.segmentPeople(editedImage);
+            if (!segmentation || segmentation.length === 0) {
+                throw new Error("Không thể nhận dạng được chủ thể trong ảnh.");
             }
+            
+            // Create a binary mask: white for the person, transparent for the background
+            const foregroundColor = {r: 255, g: 255, b: 255, a: 255};
+            const backgroundColor = {r: 0, g: 0, b: 0, a: 0};
+            const binaryMask = await bodySegmentation.toBinaryMask(
+                segmentation, foregroundColor, backgroundColor
+            );
             
             saveState();
 
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = canvas.height;
-            
-            const path = new Path2D(svgPathData);
-            tempCtx.clip(path);
+            tempCanvas.width = editedImage.naturalWidth;
+            tempCanvas.height = editedImage.naturalHeight;
+
+            // Draw the original image onto the temporary canvas
             tempCtx.drawImage(editedImage, 0, 0);
+
+            // Use the 'destination-in' composite operation to keep only the parts
+            // of the original image that overlap with the white areas of the mask.
+            tempCtx.globalCompositeOperation = 'destination-in';
+            tempCtx.drawImage(binaryMask, 0, 0);
+            
+            // Reset composite operation for future draws
+            tempCtx.globalCompositeOperation = 'source-over';
 
             const dataUrl = tempCanvas.toDataURL('image/png');
             
@@ -459,6 +476,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateEstimatedSize() {
         const format = formatSelect.value;
         const quality = (format === 'image/jpeg' || format === 'image/webp') ? parseFloat(qualitySlider.value) : undefined;
+
+        // Ensure canvas has content before getting data URL
+        if (!canvas.width || !canvas.height) {
+            estimatedSizeEl.textContent = '...';
+            return;
+        }
 
         const dataUrl = canvas.toDataURL(format, quality);
         const head = `data:${format};base64,`;
