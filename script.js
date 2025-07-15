@@ -10,42 +10,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorSection = document.getElementById('editor');
     const uploadInput = document.getElementById('upload-input');
     const uploadLabel = document.querySelector('.upload-label');
-    const canvas = document.getElementById('canvas') as HTMLCanvasElement;
+    const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
     const tabs = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
 
     // Resize controls
-    const widthInput = document.getElementById('width-input') as HTMLInputElement;
-    const heightInput = document.getElementById('height-input') as HTMLInputElement;
-    const aspectRatioLock = document.getElementById('aspect-ratio-lock') as HTMLInputElement;
+    const widthInput = document.getElementById('width-input');
+    const heightInput = document.getElementById('height-input');
+    const aspectRatioLock = document.getElementById('aspect-ratio-lock');
     const applyResizeBtn = document.getElementById('apply-resize-btn');
 
     // Crop controls
-    const applyCropBtn = document.getElementById('apply-crop-btn') as HTMLButtonElement;
-    const cropXInput = document.getElementById('crop-x') as HTMLInputElement;
-    const cropYInput = document.getElementById('crop-y') as HTMLInputElement;
-    const cropWidthInput = document.getElementById('crop-width') as HTMLInputElement;
-    const cropHeightInput = document.getElementById('crop-height') as HTMLInputElement;
+    const applyCropBtn = document.getElementById('apply-crop-btn');
+    const cropXInput = document.getElementById('crop-x');
+    const cropYInput = document.getElementById('crop-y');
+    const cropWidthInput = document.getElementById('crop-width');
+    const cropHeightInput = document.getElementById('crop-height');
     const cropInputs = [cropXInput, cropYInput, cropWidthInput, cropHeightInput];
 
     // Background Removal controls
-    const applyRemoveBgBtn = document.getElementById('apply-remove-bg-btn') as HTMLButtonElement;
+    const applyRemoveBgBtn = document.getElementById('apply-remove-bg-btn');
     const removeBgLoader = document.getElementById('remove-bg-loader');
 
     // Export controls
-    const formatSelect = document.getElementById('format-select') as HTMLSelectElement;
+    const formatSelect = document.getElementById('format-select');
     const qualityControl = document.getElementById('quality-control');
-    const qualitySlider = document.getElementById('quality-slider') as HTMLInputElement;
+    const qualitySlider = document.getElementById('quality-slider');
     const qualityValue = document.getElementById('quality-value');
     const estimatedSizeEl = document.getElementById('estimated-size');
     const downloadBtn = document.getElementById('download-btn');
     
     // Footer Buttons
     const resetBtn = document.getElementById('reset-btn');
-    const undoBtn = document.getElementById('undo-btn') as HTMLButtonElement;
-    const redoBtn = document.getElementById('redo-btn') as HTMLButtonElement;
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
 
     // State
     let originalImage = new Image();
@@ -56,14 +56,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let cropRect = { startX: 0, startY: 0, width: 0, height: 0 };
     
     // History State
-    let historyStack: string[] = [];
-    let redoStack: string[] = [];
+    let historyStack = [];
+    let redoStack = [];
     
     // --- UTILITY FUNCTIONS ---
     
-    const debounce = (func: Function, delay: number) => {
-        let timeout: ReturnType<typeof setTimeout>;
-        return function(...args: any[]) {
+    const debounce = (func, delay) => {
+        let timeout;
+        return function(...args) {
             const context = this;
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(context, args), delay);
@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UPLOAD & INITIALIZATION ---
 
-    const handleImageUpload = (file: File) => {
+    const handleImageUpload = (file) => {
         if (!file || !file.type.startsWith('image/')) {
             alert('Vui lòng chọn một tệp ảnh hợp lệ.');
             return;
@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const reader = new FileReader();
 
         reader.onload = (e) => {
-            const imageUrl = e.target.result as string;
+            const imageUrl = e.target.result;
 
             editedImage.onload = () => {
                 originalImage.src = imageUrl;
@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateEstimatedSize();
     };
     
-    const updateCanvas = (imageSource: HTMLImageElement) => {
+    const updateCanvas = (imageSource) => {
         canvas.width = imageSource.naturalWidth;
         canvas.height = imageSource.naturalHeight;
         ctx.drawImage(imageSource, 0, 0, imageSource.naturalWidth, imageSource.naturalHeight);
@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetEditor = () => {
         uploaderSection.classList.remove('hidden');
         editorSection.classList.add('hidden');
-        (uploadInput as HTMLInputElement).value = ''; // Clear file input
+        uploadInput.value = ''; // Clear file input
         originalImage = new Image();
         editedImage = new Image();
         isCropping = false;
@@ -139,20 +139,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS ---
 
-    uploadInput.addEventListener('change', (e) => handleImageUpload((e.target as HTMLInputElement).files[0]));
+    uploadInput.addEventListener('change', (e) => handleImageUpload(e.target.files[0]));
     
-    uploadLabel.addEventListener('dragover', (e: DragEvent) => {
+    uploadLabel.addEventListener('dragover', (e) => {
         e.preventDefault();
         uploadLabel.classList.add('dragover');
     });
     uploadLabel.addEventListener('dragleave', () => uploadLabel.classList.remove('dragover'));
-    uploadLabel.addEventListener('drop', (e: DragEvent) => {
+    uploadLabel.addEventListener('drop', (e) => {
         e.preventDefault();
         uploadLabel.classList.remove('dragover');
         handleImageUpload(e.dataTransfer.files[0]);
     });
 
-    tabs.forEach(tab => tab.addEventListener('click', () => activateTab((tab as HTMLElement).dataset.tab)));
+    tabs.forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
 
     widthInput.addEventListener('input', () => handleDimensionChange('width'));
     heightInput.addEventListener('input', () => handleDimensionChange('height'));
@@ -203,7 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
         redoStack.push(editedImage.src);
         const prevState = historyStack.pop();
         
-        // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
         editedImage.onload = handleImageStateChange;
         editedImage.onerror = () => {
             alert('Không thể hoàn tác. Dữ liệu ảnh trước đó bị lỗi.');
@@ -219,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
         historyStack.push(editedImage.src);
         const nextState = redoStack.pop();
 
-        // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
         editedImage.onload = handleImageStateChange;
         editedImage.onerror = () => {
             alert('Không thể làm lại. Dữ liệu ảnh bị lỗi.');
@@ -244,16 +242,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- TAB LOGIC ---
 
-    function activateTab(activeTab: string) {
+    function activateTab(activeTab) {
         isCropping = activeTab === 'crop';
-        tabs.forEach(tab => (tab as HTMLElement).classList.toggle('active', (tab as HTMLElement).dataset.tab === activeTab));
-        tabContents.forEach(content => (content as HTMLElement).classList.toggle('active', content.id === `${activeTab}-controls`));
+        tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === activeTab));
+        tabContents.forEach(content => content.classList.toggle('active', content.id === `${activeTab}-controls`));
         redrawCanvasWithOverlay(); 
     }
 
     // --- RESIZE LOGIC ---
     
-    function handleDimensionChange(changed: 'width' | 'height') {
+    function handleDimensionChange(changed) {
         if (!aspectRatioLock.checked) return;
         const width = parseInt(widthInput.value);
         const height = parseInt(heightInput.value);
@@ -284,14 +282,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const dataUrl = tempCanvas.toDataURL();
         
-        // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
         editedImage.onload = handleImageStateChange;
         editedImage.src = dataUrl;
     }
     
     // --- CROP LOGIC ---
     
-    function getMousePos(e: MouseEvent) {
+    function getMousePos(e) {
         const rect = canvas.getBoundingClientRect();
         return {
           x: (e.clientX - rect.left) * (canvas.width / rect.width),
@@ -299,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function startCrop(e: MouseEvent) {
+    function startCrop(e) {
         if (!isCropping) return;
         isDragging = true;
         const pos = getMousePos(e);
@@ -310,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCropBtn.disabled = true;
     }
     
-    function dragCrop(e: MouseEvent) {
+    function dragCrop(e) {
         if (!isCropping || !isDragging) return;
         const pos = getMousePos(e);
         cropRect.width = pos.x - cropRect.startX;
@@ -389,7 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const dataUrl = tempCanvas.toDataURL();
         
-        // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
         editedImage.onload = handleImageStateChange;
         editedImage.src = dataUrl;
     }
@@ -438,7 +434,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const dataUrl = tempCanvas.toDataURL('image/png');
             
-            // BUG FIX: Set onload handler BEFORE setting src to avoid race conditions.
             editedImage.onload = handleImageStateChange;
             editedImage.src = dataUrl;
 
